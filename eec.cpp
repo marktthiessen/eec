@@ -1,3 +1,4 @@
+#include <algorithm> // min
 #include <cctype> // isalpha, isdigit
 #include <fstream> // open, close
 #include <iostream> // cout, endl
@@ -7,16 +8,78 @@
 #include <boost/bind.hpp>
 #include <boost/function.hpp>
 #include <boost/numeric/ublas/matrix.hpp>
+#include <boost/numeric/ublas/matrix_proxy.hpp>
 #include <boost/numeric/ublas/vector.hpp>
 #include <boost/numeric/ublas/io.hpp>
 #include <boost/tokenizer.hpp>
 
+typedef long double element_type;
+typedef boost::numeric::ublas::matrix< element_type > boost_matrix;
+typedef boost_matrix::size_type boost_matrix_size_type;
+typedef boost::numeric::ublas::vector< element_type > boost_vector;
+typedef boost_vector::size_type boost_vector_size_type;
+typedef boost::numeric::ublas::matrix_row< boost_matrix > boost_matrix_row;
 typedef std::vector< std::string > string_vector;
+typedef string_vector::size_type size_type;
+
+void gaussian_elimination_wikipedia( boost_matrix a )
+{
+    boost_matrix_size_type m = a.size1();
+    boost_matrix_size_type n = a.size2();
+
+    for ( boost_matrix_size_type k = 0; k < std::min( m, n ); ++k )
+    {
+        // find the k-th pivot:
+        element_type max_a = 0;
+        boost_matrix_size_type i_of_max_a = 0;
+
+        for ( boost_matrix_size_type i = k; i < m; ++i )
+        {
+            element_type abs_a = a( i, k );
+
+            if ( abs_a < 0 )
+                abs_a = -abs_a;
+
+            if ( abs_a > max_a )
+            {
+                max_a = abs_a;
+                i_of_max_a = i;
+            }
+        }
+
+        if ( a( i_of_max_a, k ) == 0 )
+        {
+            // matrix is singular
+            // indicate an error
+            break;
+        }
+
+        // swap rows k and i_max:
+        boost_matrix_row q( a, k );
+        boost_matrix_row r( a, i_of_max_a );
+        r.swap( q );
+
+        // for all rows below pivot:
+        for ( boost_matrix_size_type i = k + 1; i < m; ++i )
+        {
+            element_type f = a( i, k ) / a( k, k );
+
+            // for all remaining elements in current row:
+            for ( boost_matrix_size_type j = k + 1; j < n; ++j )
+            {
+                a( i, j ) = a( i, j ) - a( k, j ) * f;
+            }
+
+            // fill lower triangular matrix with zeros:
+            a( i, k ) = 0;
+        }
+    }
+}
 
 class system_of_equations
 {
 public:
-    typedef std::vector< std::string >::size_type Size;
+    typedef std::vector< std::string > string_vector;
 
     system_of_equations( string_vector const & system )
     : coefficient( system.size(), system.size() )
@@ -26,9 +89,9 @@ public:
     }
 
 private:
-    boost::numeric::ublas::matrix< long > coefficient;
+    boost::numeric::ublas::matrix< element_type > coefficient;
     boost::numeric::ublas::vector< std::string > variable;
-    boost::numeric::ublas::vector< long > constant;
+    boost::numeric::ublas::vector< element_type > constant;
 };
 
 typedef boost::function< int( int ) > int_f_int;
@@ -198,6 +261,9 @@ void print_all_equations( string_vector const & system_of_equations )
 
 int main( int argc, char * argv[] )
 {
+    if ( argc < 2 )
+        return 0; // no input file
+
     std::string const file_name( argv[ 1 ] );
     std::vector< std::string > input_equations;
     load_input_file( file_name, input_equations );
