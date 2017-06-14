@@ -2,10 +2,12 @@
 #include <cctype> // isalpha, isdigit
 #include <fstream> // open, close
 #include <iostream> // cout, endl
+#include <map>
 #include <string>
 #include <vector>
 
 #include <boost/bind.hpp>
+#include <boost/foreach.hpp>
 #include <boost/function.hpp>
 #include <boost/numeric/ublas/matrix.hpp>
 #include <boost/numeric/ublas/matrix_proxy.hpp>
@@ -13,96 +15,178 @@
 #include <boost/numeric/ublas/io.hpp>
 #include <boost/tokenizer.hpp>
 
-typedef long double element_type;
-typedef boost::numeric::ublas::matrix< element_type > boost_matrix;
-typedef boost_matrix::size_type boost_matrix_size_type;
-typedef boost::numeric::ublas::vector< element_type > boost_vector;
-typedef boost_vector::size_type boost_vector_size_type;
-typedef boost::numeric::ublas::matrix_row< boost_matrix > boost_matrix_row;
-typedef std::vector< std::string > string_vector;
-typedef string_vector::size_type size_type;
-
-void gaussian_elimination_wikipedia( boost_matrix a )
+class system_of_equations
 {
-    boost_matrix_size_type m = a.size1();
-    boost_matrix_size_type n = a.size2();
+public:
+    typedef long double element_type;
+    typedef boost::numeric::ublas::matrix< element_type > boost_matrix;
+    typedef boost_matrix::size_type boost_matrix_size_type;
+    typedef boost::numeric::ublas::vector< std::string > boost_vector;
+    typedef boost_vector::size_type boost_vector_size_type;
+    typedef boost::numeric::ublas::matrix_row< boost_matrix > boost_matrix_row;
+    typedef std::vector< std::string > string_vector;
+    typedef string_vector::size_type size_type;
+    typedef boost::function< int( int ) > int_f_int;
+    typedef boost::tokenizer< boost::char_separator< char > > tokenizer;
 
+    void load_input_file( std::string const & file_name );
+    bool equations_are_valid();
+    void print_all_equations();
+    void convert_input();
+
+private:
+    void gaussian_elimination_wikipedia();
+    bool is_valid_string( std::string const &, int_f_int is_valid_char );
+    bool is_valid_variable_name( std::string const & );
+    bool is_valid_unsigned_integer( std::string const & );
+    bool is_valid_variable_name_or_unsigned_integer( std::string const & );
+    bool is_equal_sign( std::string const & );
+    bool is_plus_sign( std::string const & );
+    bool is_equation( tokenizer const & equation );
+    tokenizer string_to_tokens( std::string const & equation );
+    size_type note_variable( std::string const & variable_name );
+    void add_left_side_variable( size_type va_index );
+    void add_right_side_variable( size_type va_index );
+    void add_constant( std::string const & value );
+
+    string_vector input_system;
+    boost_matrix co;
+    string_vector va;
+    std::map< std::string, size_type > va_check;
+};
+
+void system_of_equations::convert_input()
+{
+    BOOST_FOREACH ( std::string equation_as_string, input_system )
+    {
+        tokenizer equation_as_tokens = string_to_tokens( equation_as_string );
+        bool first_token = true;
+        bool quantity = true;
+
+        BOOST_FOREACH ( std::string token, equation_as_tokens )
+        {
+            size_type va_index = 0;
+
+            if ( first_token )
+            {
+                va_index = note_variable( token );
+                add_left_side_variable( va_index );
+            }
+            else if ( quantity )
+            {
+                if ( isdigit( token[ 0 ] ) )
+                {
+                    add_constant( token );
+                }
+                else
+                {
+                    va_index = note_variable( token );
+                    add_right_side_variable( va_index );
+                }
+            }
+
+            quantity = ! quantity;
+        }
+    }
+}
+
+system_of_equations::size_type system_of_equations::note_variable( std::string const & variable_name )
+{
+    size_type va_index = 0;
+
+    if ( 0 == va_check.count( variable_name ) )
+    {
+        va.push_back( variable_name );
+        va_index = va.size() - 1;
+        va_check[ variable_name ] = va_index;
+    }
+    else
+    {
+        va_index = va_check[ variable_name ];
+    }
+
+    return va_index;
+}
+
+void system_of_equations::add_left_side_variable( size_type va_index )
+{
+    // +1 coefficient at this equation row and va_index column
+}
+
+void system_of_equations::add_right_side_variable( size_type va_index )
+{
+    // -1 coefficient at this equation row and va_index column
+}
+
+void system_of_equations::add_constant( std::string const & value )
+{
+    // +value constant at this equation row and constant column
+}
+
+void system_of_equations::gaussian_elimination_wikipedia()
+{
+    boost_matrix_size_type m = co.size1();
+    boost_matrix_size_type n = co.size2();
+    
     for ( boost_matrix_size_type k = 0; k < std::min( m, n ); ++k )
     {
         // find the k-th pivot:
-        element_type max_a = 0;
-        boost_matrix_size_type i_of_max_a = 0;
-
+        element_type max_co = 0;
+        boost_matrix_size_type i_of_max_co = 0;
+        
         for ( boost_matrix_size_type i = k; i < m; ++i )
         {
-            element_type abs_a = a( i, k );
-
-            if ( abs_a < 0 )
-                abs_a = -abs_a;
-
-            if ( abs_a > max_a )
+            element_type abs_co = co( i, k );
+            
+            if ( abs_co < 0 )
+                abs_co = -abs_co;
+            
+            if ( abs_co > max_co )
             {
-                max_a = abs_a;
-                i_of_max_a = i;
+                max_co = abs_co;
+                i_of_max_co = i;
             }
         }
-
-        if ( a( i_of_max_a, k ) == 0 )
+        
+        if ( co( i_of_max_co, k ) == 0 )
         {
             // matrix is singular
             // indicate an error
             break;
         }
-
+        
         // swap rows k and i_max:
-        boost_matrix_row q( a, k );
-        boost_matrix_row r( a, i_of_max_a );
+        boost_matrix_row q( co, k );
+        boost_matrix_row r( co, i_of_max_co );
         r.swap( q );
-
+        
         // for all rows below pivot:
         for ( boost_matrix_size_type i = k + 1; i < m; ++i )
         {
-            element_type f = a( i, k ) / a( k, k );
-
+            element_type f = co( i, k ) / co( k, k );
+            
             // for all remaining elements in current row:
             for ( boost_matrix_size_type j = k + 1; j < n; ++j )
             {
-                a( i, j ) = a( i, j ) - a( k, j ) * f;
+                co( i, j ) = co( i, j ) - co( k, j ) * f;
             }
-
+            
             // fill lower triangular matrix with zeros:
-            a( i, k ) = 0;
+            co( i, k ) = 0;
         }
     }
 }
 
-class system_of_equations
+bool system_of_equations::is_valid_string( std::string const & str, int_f_int is_valid_char )
 {
-public:
-    typedef std::vector< std::string > string_vector;
+    if ( str.size() > 10 )
+        return false;
 
-    system_of_equations( string_vector const & system )
-    : coefficient( system.size(), system.size() )
-    , variable( system.size() )
-    , constant( system.size() )
-    {
-    }
-
-private:
-    boost::numeric::ublas::matrix< element_type > coefficient;
-    boost::numeric::ublas::vector< std::string > variable;
-    boost::numeric::ublas::vector< element_type > constant;
-};
-
-typedef boost::function< int( int ) > int_f_int;
-
-bool is_valid_string( std::string const & str, int_f_int is_valid_char )
-{
     bool valid = true;
 
-    for ( std::string::size_type i = 0; valid && i < str.size(); ++i )
+    BOOST_FOREACH ( char c, str )
     {
-        valid = is_valid_char( str[ i ] );
+        valid = is_valid_char( c );
 
         if ( ! valid )
             break;
@@ -111,38 +195,36 @@ bool is_valid_string( std::string const & str, int_f_int is_valid_char )
     return valid;
 }
 
-bool is_valid_variable( std::string const & str )
+bool system_of_equations::is_valid_variable_name( std::string const & str )
 {
    return is_valid_string( str, boost::bind( isalpha, _1 ) );
 }
 
-bool is_valid_unsigned_integer( std::string const & str )
+bool system_of_equations::is_valid_unsigned_integer( std::string const & str )
 {
    return is_valid_string( str, boost::bind( isdigit, _1 ) );
 }
 
-bool is_variable_or_unsigned_integer( std::string const & str )
+bool system_of_equations::is_valid_variable_name_or_unsigned_integer( std::string const & str )
 {
-    return( is_valid_variable( str ) || is_valid_unsigned_integer( str ) );
+    return( is_valid_variable_name( str ) || is_valid_unsigned_integer( str ) );
 }
 
-bool is_equal_sign( std::string token )
+bool system_of_equations::is_equal_sign( std::string const &token )
 {
     return( "=" == token );
 }
 
-bool is_plus_sign( std::string token )
+bool system_of_equations::is_plus_sign( std::string const & token )
 {
     return( "+" == token );
 }
 
-typedef boost::tokenizer< boost::char_separator< char > > tokenizer;
-
-bool is_equation( tokenizer equation )
+bool system_of_equations::is_equation( tokenizer const & equation )
 {
     bool valid = true;
 
-    tokenizer::iterator token = equation.begin();
+    tokenizer::const_iterator token = equation.begin();
 
     // first token: variable
     valid = ( token != equation.end() );
@@ -150,7 +232,7 @@ bool is_equation( tokenizer equation )
     if ( ! valid )
         return valid;
 
-    valid = is_valid_variable( *token );
+    valid = is_valid_variable_name( *token );
 
     if ( ! valid )
         return valid;
@@ -176,7 +258,7 @@ bool is_equation( tokenizer equation )
     if ( ! valid )
         return valid;
 
-    valid = is_variable_or_unsigned_integer( *token );
+    valid = is_valid_variable_name_or_unsigned_integer( *token );
 
     if ( ! valid )
         return valid;
@@ -197,7 +279,7 @@ bool is_equation( tokenizer equation )
         if ( ! valid )
             break;
 
-        valid = is_variable_or_unsigned_integer( *token );
+        valid = is_valid_variable_name_or_unsigned_integer( *token );
 
         if ( ! valid )
             break;
@@ -206,7 +288,7 @@ bool is_equation( tokenizer equation )
     return valid;
 }
 
-void load_input_file( std::string const & file_name, string_vector & system_of_equations )
+void system_of_equations::load_input_file( std::string const & file_name )
 {
     std::ifstream input_file;
     input_file.open( file_name );
@@ -217,29 +299,20 @@ void load_input_file( std::string const & file_name, string_vector & system_of_e
 
         while ( std::getline( input_file, input_equation ) )
         {
-            system_of_equations.push_back( input_equation );
+            input_system.push_back( input_equation );
         }
 
         input_file.close();
     }
 }
 
-tokenizer string_to_tokens( std::string equation_as_string )
-{
-    boost::char_separator< char > separator( " " );
-    tokenizer equation_as_tokens( equation_as_string, separator );
-    return equation_as_tokens;
-}
-
-bool equations_are_valid( string_vector const & system_of_equations )
+bool system_of_equations::equations_are_valid()
 {
     bool valid = true;
 
-    for ( string_vector::const_iterator equation_as_string = system_of_equations.begin();
-          equation_as_string != system_of_equations.end();
-          ++equation_as_string )
+    BOOST_FOREACH ( std::string equation_as_string, input_system )
     {
-        tokenizer equation_as_tokens = string_to_tokens( *equation_as_string );
+        tokenizer equation_as_tokens = string_to_tokens( equation_as_string );
         valid = is_equation( equation_as_tokens );
 
         if ( ! valid )
@@ -249,13 +322,18 @@ bool equations_are_valid( string_vector const & system_of_equations )
     return valid;
 }
 
-void print_all_equations( string_vector const & system_of_equations )
+system_of_equations::tokenizer system_of_equations::string_to_tokens( std::string const & equation_as_string )
 {
-    for ( string_vector::const_iterator equation_as_string = system_of_equations.begin();
-         equation_as_string != system_of_equations.end();
-         ++equation_as_string )
+    boost::char_separator< char > separator( " " );
+    tokenizer equation_as_tokens( equation_as_string, separator );
+    return equation_as_tokens;
+}
+
+void system_of_equations::print_all_equations()
+{
+    BOOST_FOREACH ( std::string equation_as_string, input_system )
     {
-        std::cout << *equation_as_string << std::endl;
+        std::cout << equation_as_string << std::endl;
     }
 }
 
@@ -264,16 +342,18 @@ int main( int argc, char * argv[] )
     if ( argc < 2 )
         return 0; // no input file
 
+    system_of_equations system;
     std::string const file_name( argv[ 1 ] );
-    std::vector< std::string > input_equations;
-    load_input_file( file_name, input_equations );
+    system.load_input_file( file_name );
 
     // If any input equation is not valid, print all input equations.
-    if ( ! equations_are_valid( input_equations ) )
+    if ( ! system.equations_are_valid() )
     {
-        print_all_equations( input_equations );
+        system.print_all_equations();
         return 0;
     }
+
+    system.convert_input();
 
     return 0;
 }
