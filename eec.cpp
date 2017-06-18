@@ -69,11 +69,13 @@ void system_of_equations::convert_input()
 
             if ( first_token )
             {
+                // this must be a variable on the left side of this input equation
                 va_index = note_variable( token );
                 add_left_side_variable( va_index );
             }
             else if ( quantity )
             {
+                // this must be a variable or constant on the right side of this input equation
                 if ( isdigit( token[ 0 ] ) )
                 {
                     add_constant( token );
@@ -84,6 +86,7 @@ void system_of_equations::convert_input()
                     add_right_side_variable( va_index );
                 }
             }
+            // else, this must be the equal sign or a plus sign
 
             quantity = ! quantity;
         }
@@ -127,50 +130,50 @@ void system_of_equations::gaussian_elimination_wikipedia()
 {
     boost_matrix_size_type m = co.size1();
     boost_matrix_size_type n = co.size2();
-    
+
     for ( boost_matrix_size_type k = 0; k < std::min( m, n ); ++k )
     {
         // find the k-th pivot:
         element_type max_co = 0;
         boost_matrix_size_type i_of_max_co = 0;
-        
+
         for ( boost_matrix_size_type i = k; i < m; ++i )
         {
             element_type abs_co = co( i, k );
-            
+
             if ( abs_co < 0 )
                 abs_co = -abs_co;
-            
+
             if ( abs_co > max_co )
             {
                 max_co = abs_co;
                 i_of_max_co = i;
             }
         }
-        
+
         if ( co( i_of_max_co, k ) == 0 )
         {
             // matrix is singular
             // indicate an error
             break;
         }
-        
+
         // swap rows k and i_max:
         boost_matrix_row q( co, k );
         boost_matrix_row r( co, i_of_max_co );
         r.swap( q );
-        
+
         // for all rows below pivot:
         for ( boost_matrix_size_type i = k + 1; i < m; ++i )
         {
             element_type f = co( i, k ) / co( k, k );
-            
+
             // for all remaining elements in current row:
             for ( boost_matrix_size_type j = k + 1; j < n; ++j )
             {
                 co( i, j ) = co( i, j ) - co( k, j ) * f;
             }
-            
+
             // fill lower triangular matrix with zeros:
             co( i, k ) = 0;
         }
@@ -228,7 +231,7 @@ bool system_of_equations::is_equation( tokenizer const & equation )
 
     // first token: variable
     valid = ( token != equation.end() );
-    
+
     if ( ! valid )
         return valid;
 
@@ -291,7 +294,7 @@ bool system_of_equations::is_equation( tokenizer const & equation )
 void system_of_equations::load_input_file( std::string const & file_name )
 {
     std::ifstream input_file;
-    input_file.open( file_name );
+    input_file.open( file_name.c_str() );
 
     if ( input_file.is_open() )
     {
