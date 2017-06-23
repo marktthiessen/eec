@@ -35,6 +35,7 @@ public:
     bool equations_are_valid();
     void print_all_equations();
     void convert_input();
+    void print_matrix();
 
 private:
     void gaussian_elimination_wikipedia();
@@ -174,6 +175,21 @@ void system_of_equations::add_constant( size_type row, element_type constant )
 
     else
         co( row, co.size2() - 1 ) += constant;
+}
+
+void system_of_equations::print_matrix()
+{
+    for( size_type i = 0; i < co.size1(); ++i )
+    {
+        boost_matrix_row row( co, i );
+
+        BOOST_FOREACH( element_type coefficient, row )
+        {
+            std::cout << coefficient << " ";
+        }
+
+        std::cout << std::endl;
+    }
 }
 
 void system_of_equations::gaussian_elimination_wikipedia()
