@@ -36,9 +36,9 @@ public:
     void print_all_equations();
     void convert_input();
     void print_matrix();
+    void gaussian_elimination_wikipedia();
 
 private:
-    void gaussian_elimination_wikipedia();
     bool is_valid_string( std::string const &, int_f_int is_valid_char );
     bool is_valid_variable_name( std::string const & );
     bool is_valid_unsigned_integer( std::string const & );
@@ -48,8 +48,8 @@ private:
     bool is_equation( tokenizer const & equation );
     tokenizer string_to_tokens( std::string const & equation );
     size_type note_variable( std::string const & variable_name );
-    void add_left_side_variable( size_type row, size_type column );
-    void add_right_side_variable( size_type row, size_type column );
+    void increment_height();
+    void add_variable( int side, size_type row, size_type column );
     void increase_width( size_type new_width );
     void add_constant( size_type row, element_type constant );
 
@@ -57,7 +57,13 @@ private:
     boost_matrix co;
     string_vector va;
     std::map< std::string, size_type > va_check;
+
+    static int const left_side;
+    static int const right_side;
 };
+
+int const system_of_equations::left_side = 1;
+int const system_of_equations::right_side = -1;
 
 void system_of_equations::convert_input()
 {
@@ -77,7 +83,8 @@ void system_of_equations::convert_input()
             {
                 // this must be a variable on the left side of this input equation
                 va_index = note_variable( token );
-                add_left_side_variable( row, va_index );
+                increment_height();
+                add_variable( left_side, row, va_index );
             }
             else if ( quantity )
             {
@@ -89,11 +96,12 @@ void system_of_equations::convert_input()
                 else
                 {
                     va_index = note_variable( token );
-                    add_right_side_variable( row, va_index );
+                    add_variable( right_side, row, va_index );
                 }
             }
             // else, this must be the equal sign or a plus sign
 
+            first_token = false;
             quantity = ! quantity;
         }
 
@@ -119,44 +127,46 @@ system_of_equations::size_type system_of_equations::note_variable( std::string c
     return va_index;
 }
 
-void system_of_equations::add_left_side_variable( size_type row, size_type column )
+void system_of_equations::increment_height()
 {
-    // Add one to the coefficient at this equation index (row) and variable index (column).
-    if ( column + 1 >= co.size2() )
-    {
-        increase_width( column + 2 );
-        co( row, column ) = 1.0;
-    }
+    co.resize( co.size1() + 1, co.size2() );
+    boost_matrix_row row( co, co.size1() - 1 );
 
-    else if ( row >= co.size1() )
-        co.insert_element( row, column, 1.0 );
+    for ( size_type i = 0; i < co.size2(); ++i )
+        row( i ) = 0;
 
-    else
-        co( row, column ) += 1.0;
+    std::cout << std::endl;
 }
 
-void system_of_equations::add_right_side_variable( size_type row, size_type column )
+void system_of_equations::add_variable( int side, size_type row, size_type column )
 {
     // Subtract 1 from the coefficient at this equation index (row) and variable index (column).
-    if ( column + 1 >= co.size2() )
+    if ( column + 1 >= co.size2() ) // no room for the constant column?
     {
-        increase_width( column + 2 );
-        co( row, column )= -1.0;
+        increase_width( column + 2 ); // make room for this column and the constant column
+        co( row, column ) = side;
     }
-
+    
     else if ( row >= co.size1() )
-        co.insert_element( row, column, -1.0 );
-
+        co( row, column ) = side;
+    
     else
-        co( row, column ) -= 1.0;
+        co( row, column ) += side;
 }
 
 void system_of_equations::increase_width( size_type new_width )
 {
+    size_type height = co.size1();
     size_type old_width = co.size2();
     assert( old_width != 1 );
-    assert( new_width >= 2 );
-    co.insert_element( 0, new_width - 1, 0.0 );
+    assert( new_width >= 2 ); // minimal non-empty width due to the constant column
+
+    if ( height == 0 )
+        height = 1;
+
+    co.resize( height, new_width );
+    co( 0, old_width ) = 0; // in case old_width is 0 and new_width is 2
+    co( 0, new_width - 1 ) = 0;
 
     if ( 0 < old_width )
     {
@@ -171,7 +181,7 @@ void system_of_equations::add_constant( size_type row, element_type constant )
 {
     // Add constant at this equation index (row) and constant (last) column.
     if ( row >= co.size1() )
-        co.insert_element( row, co.size2() - 1, constant );
+        co( row, co.size2() - 1 ) = constant;
 
     else
         co( row, co.size2() - 1 ) += constant;
@@ -190,6 +200,8 @@ void system_of_equations::print_matrix()
 
         std::cout << std::endl;
     }
+
+    std::cout << std::endl;
 }
 
 void system_of_equations::gaussian_elimination_wikipedia()
@@ -423,6 +435,9 @@ int main( int argc, char * argv[] )
     }
 
     system.convert_input();
+    system.print_matrix();
+    system.gaussian_elimination_wikipedia();
+    system.print_matrix();
 
     return 0;
 }
