@@ -34,9 +34,10 @@ public:
     void load_input_file( std::string const & file_name );
     bool equations_are_valid();
     void print_all_equations();
-    void convert_input();
+    void convert_input_to_matrix();
     void print_matrix();
     void gaussian_elimination_wikipedia();
+    void convert_matrix_to_output();
 
 private:
     bool is_valid_string( std::string const &, int_f_int is_valid_char );
@@ -54,9 +55,10 @@ private:
     void add_constant( size_type row, element_type constant );
 
     string_vector input_system;
-    boost_matrix co;
-    string_vector va;
+    boost_matrix co; // augmented matrix of coefficients
+    string_vector va; // vector of variable names
     std::map< std::string, size_type > va_check;
+    std::vector< element_type > variable_value;
 
     static int const left_side;
     static int const right_side;
@@ -65,7 +67,7 @@ private:
 int const system_of_equations::left_side = 1;
 int const system_of_equations::right_side = -1;
 
-void system_of_equations::convert_input()
+void system_of_equations::convert_input_to_matrix()
 {
     size_type row = 0;
 
@@ -418,6 +420,75 @@ void system_of_equations::print_all_equations()
     }
 }
 
+// This function uses back substitution to solve all the variables.
+void system_of_equations::convert_matrix_to_output()
+{
+    variable_value.resize( va.size() );
+
+    for ( size_type e = co.size1() - 1; ; --e )
+    {
+        element_type answer = co( e, co.size2() - 1 );
+
+#ifdef SHOW_CALCULATIONS
+        std::cout << "co(" << e << "," << co.size2() - 1 << ") = " << co( e, co.size2() - 1 ) << std::endl;
+        std::cout << "answer <- co(" << e << "," << co.size2() - 1 << ")" << std::endl;
+        std::cout << "answer = " << answer << std::endl;
+#endif
+
+        for ( size_type v = co.size2() - 2; ; --v )
+        {
+            if ( v > e )
+            {
+
+#ifdef SHOW_CALCULATIONS
+                std::cout << "co(" << e << "," << v << ") = " << co( e, v ) << std::endl;
+                std::cout << va[ v ] << " = " << variable_value[ v ] << std::endl;
+#endif
+
+                answer -= co( e, v ) * variable_value[ v ];
+
+#ifdef SHOW_CALCULATIONS
+                std::cout << "answer <- answer - co(" << e << "," << v << ") * " << va[ v ] << std::endl;
+                std::cout << "answer = " << answer << std::endl;
+#endif
+            }
+
+            else
+            {
+
+#ifdef SHOW_CALCULATIONS
+                std::cout << "co(" << e << "," << v << ") = " << co( e, v ) << std::endl;
+#endif
+
+                answer /= co( e, v );
+
+#ifdef SHOW_CALCULATIONS
+                std::cout << "answer <- answer / co(" << e << "," << v << ")" << std::endl;
+                std::cout << "answer = " << answer << std::endl;
+#endif
+
+                variable_value[ v ] = answer;
+
+#ifdef SHOW_CALCULATIONS
+                std::cout << va[ v ] << " <- answer" << std::endl;
+                std::cout << va[ v ] << " = " << variable_value[ v ] << std::endl;
+#endif
+            }
+
+            if ( v == e )
+                break;
+        }
+
+        if ( e == 0 )
+            break;
+    }
+
+    for ( size_type i = 0; i < va.size(); ++i )
+    {
+        std::cout << va[ i ] << " = " << variable_value[ i ] << std::endl;
+    }
+}
+
 int main( int argc, char * argv[] )
 {
     if ( argc < 2 )
@@ -434,10 +505,15 @@ int main( int argc, char * argv[] )
         return 0;
     }
 
-    system.convert_input();
+    system.convert_input_to_matrix();
+#ifdef SHOW_CALCULATIONS
     system.print_matrix();
+#endif
     system.gaussian_elimination_wikipedia();
+#ifdef SHOW_CALCULATIONS
     system.print_matrix();
+#endif
+    system.convert_matrix_to_output();
 
     return 0;
 }
