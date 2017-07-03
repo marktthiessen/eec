@@ -1,4 +1,4 @@
-#include <algorithm> // min
+#include <algorithm> // min, sort
 #include <cctype> // isalpha, isdigit
 #include <cstdlib> // atol
 #include <fstream> // open, close
@@ -16,16 +16,35 @@
 #include <boost/numeric/ublas/io.hpp>
 #include <boost/tokenizer.hpp>
 
+typedef long double element_type;
+
+class variable_name_value
+{
+public:
+    variable_name_value( std::string name )
+    : name( name )
+    , value( 0 )
+    {
+    }
+
+    std::string name;
+    element_type value;
+};
+
+bool operator<( variable_name_value lhs, variable_name_value rhs )
+{
+    return lhs.name < rhs.name;
+}
+
 class system_of_equations
 {
 public:
-    typedef long double element_type;
-    typedef boost::numeric::ublas::matrix< element_type > boost_matrix;
-    typedef boost_matrix::size_type boost_matrix_size_type;
+    typedef boost::numeric::ublas::matrix< element_type > coefficient_matrix;
+    typedef coefficient_matrix::size_type coefficient_matrix_size_type;
     typedef boost::numeric::ublas::vector< std::string > boost_vector;
     typedef boost_vector::size_type boost_vector_size_type;
-    typedef boost::numeric::ublas::matrix_row< boost_matrix > boost_matrix_row;
-    typedef boost::numeric::ublas::matrix_column< boost_matrix > boost_matrix_column;
+    typedef boost::numeric::ublas::matrix_row< coefficient_matrix > coefficient_matrix_row;
+    typedef boost::numeric::ublas::matrix_column< coefficient_matrix > coefficient_matrix_column;
     typedef std::vector< std::string > string_vector;
     typedef string_vector::size_type size_type;
     typedef boost::function< int( int ) > int_f_int;
@@ -37,7 +56,8 @@ public:
     void convert_input_to_matrix();
     void print_matrix();
     void gaussian_elimination_wikipedia();
-    void convert_matrix_to_output();
+    void convert_matrix_to_results();
+    void output_results();
 
 private:
     bool is_valid_string( std::string const &, int_f_int is_valid_char );
@@ -55,10 +75,9 @@ private:
     void add_constant( size_type row, element_type constant );
 
     string_vector input_system;
-    boost_matrix co; // augmented matrix of coefficients
-    string_vector va; // vector of variable names
+    coefficient_matrix co; // augmented matrix of coefficients
+    std::vector< variable_name_value > va;
     std::map< std::string, size_type > va_check;
-    std::vector< element_type > variable_value;
 
     static int const left_side;
     static int const right_side;
@@ -132,12 +151,14 @@ system_of_equations::size_type system_of_equations::note_variable( std::string c
 void system_of_equations::increment_height()
 {
     co.resize( co.size1() + 1, co.size2() );
-    boost_matrix_row row( co, co.size1() - 1 );
+    coefficient_matrix_row row( co, co.size1() - 1 );
 
     for ( size_type i = 0; i < co.size2(); ++i )
         row( i ) = 0;
 
+#ifdef SHOW_CALCULATIONS
     std::cout << std::endl;
+#endif
 }
 
 void system_of_equations::add_variable( int side, size_type row, size_type column )
@@ -172,8 +193,8 @@ void system_of_equations::increase_width( size_type new_width )
 
     if ( 0 < old_width )
     {
-        boost_matrix_column old_constants( co, old_width - 1 );
-        boost_matrix_column new_constants( co, new_width - 1 );
+        coefficient_matrix_column old_constants( co, old_width - 1 );
+        coefficient_matrix_column new_constants( co, new_width - 1 );
         new_constants = old_constants;
         old_constants -= old_constants;
     }
@@ -193,7 +214,7 @@ void system_of_equations::print_matrix()
 {
     for( size_type i = 0; i < co.size1(); ++i )
     {
-        boost_matrix_row row( co, i );
+        coefficient_matrix_row row( co, i );
 
         BOOST_FOREACH( element_type coefficient, row )
         {
@@ -208,16 +229,16 @@ void system_of_equations::print_matrix()
 
 void system_of_equations::gaussian_elimination_wikipedia()
 {
-    boost_matrix_size_type m = co.size1();
-    boost_matrix_size_type n = co.size2();
+    coefficient_matrix_size_type m = co.size1();
+    coefficient_matrix_size_type n = co.size2();
 
-    for ( boost_matrix_size_type k = 0; k < std::min( m, n ); ++k )
+    for ( coefficient_matrix_size_type k = 0; k < std::min( m, n ); ++k )
     {
         // find the k-th pivot:
         element_type max_co = 0;
-        boost_matrix_size_type i_of_max_co = 0;
+        coefficient_matrix_size_type i_of_max_co = 0;
 
-        for ( boost_matrix_size_type i = k; i < m; ++i )
+        for ( coefficient_matrix_size_type i = k; i < m; ++i )
         {
             element_type abs_co = co( i, k );
 
@@ -239,17 +260,17 @@ void system_of_equations::gaussian_elimination_wikipedia()
         }
 
         // swap rows k and i_max:
-        boost_matrix_row q( co, k );
-        boost_matrix_row r( co, i_of_max_co );
+        coefficient_matrix_row q( co, k );
+        coefficient_matrix_row r( co, i_of_max_co );
         r.swap( q );
 
         // for all rows below pivot:
-        for ( boost_matrix_size_type i = k + 1; i < m; ++i )
+        for ( coefficient_matrix_size_type i = k + 1; i < m; ++i )
         {
             element_type f = co( i, k ) / co( k, k );
 
             // for all remaining elements in current row:
-            for ( boost_matrix_size_type j = k + 1; j < n; ++j )
+            for ( coefficient_matrix_size_type j = k + 1; j < n; ++j )
             {
                 co( i, j ) = co( i, j ) - co( k, j ) * f;
             }
@@ -421,10 +442,8 @@ void system_of_equations::print_all_equations()
 }
 
 // This function uses back substitution to solve all the variables.
-void system_of_equations::convert_matrix_to_output()
+void system_of_equations::convert_matrix_to_results()
 {
-    variable_value.resize( va.size() );
-
     for ( size_type e = co.size1() - 1; ; --e )
     {
         element_type answer = co( e, co.size2() - 1 );
@@ -442,13 +461,13 @@ void system_of_equations::convert_matrix_to_output()
 
 #ifdef SHOW_CALCULATIONS
                 std::cout << "co(" << e << "," << v << ") = " << co( e, v ) << std::endl;
-                std::cout << va[ v ] << " = " << variable_value[ v ] << std::endl;
+                std::cout << va[ v ].name << " = " << va[ v ].value << std::endl;
 #endif
 
-                answer -= co( e, v ) * variable_value[ v ];
+                answer -= co( e, v ) * va[ v ].value;
 
 #ifdef SHOW_CALCULATIONS
-                std::cout << "answer <- answer - co(" << e << "," << v << ") * " << va[ v ] << std::endl;
+                std::cout << "answer <- answer - co(" << e << "," << v << ") * " << va[ v ].name << std::endl;
                 std::cout << "answer = " << answer << std::endl;
 #endif
             }
@@ -467,11 +486,11 @@ void system_of_equations::convert_matrix_to_output()
                 std::cout << "answer = " << answer << std::endl;
 #endif
 
-                variable_value[ v ] = answer;
+                va[ v ].value = answer;
 
 #ifdef SHOW_CALCULATIONS
-                std::cout << va[ v ] << " <- answer" << std::endl;
-                std::cout << va[ v ] << " = " << variable_value[ v ] << std::endl;
+                std::cout << va[ v ].name << " <- answer" << std::endl;
+                std::cout << va[ v ].name << " = " << va[ v ].value << std::endl;
 #endif
             }
 
@@ -482,10 +501,15 @@ void system_of_equations::convert_matrix_to_output()
         if ( e == 0 )
             break;
     }
+}
 
-    for ( size_type i = 0; i < va.size(); ++i )
+void system_of_equations::output_results()
+{
+    std::sort( va.begin(), va.end(), operator< );
+
+    BOOST_FOREACH ( variable_name_value vnv, va )
     {
-        std::cout << va[ i ] << " = " << variable_value[ i ] << std::endl;
+        std::cout << vnv.name << " = " << vnv.value << std::endl;
     }
 }
 
@@ -513,7 +537,8 @@ int main( int argc, char * argv[] )
 #ifdef SHOW_CALCULATIONS
     system.print_matrix();
 #endif
-    system.convert_matrix_to_output();
+    system.convert_matrix_to_results();
+    system.output_results();
 
     return 0;
 }
