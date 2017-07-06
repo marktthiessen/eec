@@ -14,110 +14,115 @@
 #include <boost/numeric/ublas/matrix_proxy.hpp>
 #include <boost/numeric/ublas/vector.hpp>
 #include <boost/numeric/ublas/io.hpp>
-#include <boost/tokenizer.hpp>
+#include <boost/Tokenizer.hpp>
 
-typedef long double element_type;
+typedef long double ElementType;
 
-class variable_name_value
+class VariableNameValue
 {
 public:
-    variable_name_value( std::string name )
+    VariableNameValue( std::string name )
     : name( name )
     , value( 0 )
     {
     }
 
     std::string name;
-    element_type value;
+    ElementType value;
 };
 
-bool operator<( variable_name_value lhs, variable_name_value rhs )
+bool operator<( VariableNameValue lhs, VariableNameValue rhs )
 {
     return lhs.name < rhs.name;
 }
 
-class system_of_equations
+typedef boost::tokenizer< boost::char_separator< char > > Tokenizer;
+
+Tokenizer stringToTokens( std::string const & equationAsString )
+{
+    boost::char_separator< char > separator( " " );
+    Tokenizer equationAsTokens( equationAsString, separator );
+    return equationAsTokens;
+}
+
+class SystemOfEquations
 {
 public:
-    typedef boost::numeric::ublas::matrix< element_type > coefficient_matrix;
-    typedef coefficient_matrix::size_type coefficient_matrix_size_type;
-    typedef boost::numeric::ublas::vector< std::string > boost_vector;
-    typedef boost_vector::size_type boost_vector_size_type;
-    typedef boost::numeric::ublas::matrix_row< coefficient_matrix > coefficient_matrix_row;
-    typedef boost::numeric::ublas::matrix_column< coefficient_matrix > coefficient_matrix_column;
-    typedef std::vector< std::string > string_vector;
-    typedef string_vector::size_type size_type;
-    typedef boost::function< int( int ) > int_f_int;
-    typedef boost::tokenizer< boost::char_separator< char > > tokenizer;
+    typedef boost::numeric::ublas::matrix< ElementType > AugmentedMatrix;
+    typedef AugmentedMatrix::size_type AugmentedMatrixSize;
+    typedef boost::numeric::ublas::matrix_row< AugmentedMatrix > AugmentedMatrixRow;
+    typedef boost::numeric::ublas::matrix_column< AugmentedMatrix > AugmentedMatrixColumn;
+    typedef std::vector< std::string > InputEquationVector;
+    typedef InputEquationVector::size_type InputEquationVectorSize;
+    typedef boost::function< int( int ) > IntFunctionInt;
 
-    void load_input_file( std::string const & file_name );
-    bool equations_are_valid();
-    void print_all_equations();
-    void convert_input_to_matrix();
-    void print_matrix();
-    void gaussian_elimination_wikipedia();
-    void convert_matrix_to_results();
-    void output_results();
+    void loadInputFile( std::string const & fileName );
+    bool equationsAreValid();
+    void printAllEquations();
+    void convertInputToMatrix();
+    void printMatrix();
+    void solveByGaussianElimination();
+    void convertMatrixToResults();
+    void outputResults();
 
 private:
-    bool is_valid_string( std::string const &, int_f_int is_valid_char );
-    bool is_valid_variable_name( std::string const & );
-    bool is_valid_unsigned_integer( std::string const & );
-    bool is_valid_variable_name_or_unsigned_integer( std::string const & );
-    bool is_equal_sign( std::string const & );
-    bool is_plus_sign( std::string const & );
-    bool is_equation( tokenizer const & equation );
-    tokenizer string_to_tokens( std::string const & equation );
-    size_type note_variable( std::string const & variable_name );
-    void increment_height();
-    void add_variable( int side, size_type row, size_type column );
-    void increase_width( size_type new_width );
-    void add_constant( size_type row, element_type constant );
+    bool isValidString( std::string const &, IntFunctionInt isValidChar );
+    bool isValidVariableName( std::string const & );
+    bool isValidUnsignedInteger( std::string const & );
+    bool isValidVariableNameOrUnsignedInteger( std::string const & );
+    bool isEqualSign( std::string const & );
+    bool isPlusSign( std::string const & );
+    bool isEquation( Tokenizer const & equation );
+    InputEquationVectorSize indexVariable( std::string const & name );
+    void incrementHeight();
+    void addVariable( int side, InputEquationVectorSize row, InputEquationVectorSize column );
+    void increaseWidth( InputEquationVectorSize newWidth );
+    void addConstant( InputEquationVectorSize row, ElementType constant );
 
-    string_vector input_system;
-    coefficient_matrix co; // augmented matrix of coefficients
-    std::vector< variable_name_value > va;
-    std::map< std::string, size_type > va_check;
+    InputEquationVector equationVector;
+    AugmentedMatrix augMatrix; // augmented matrix of coefficients and constants
+    std::vector< VariableNameValue > variableNameValue;
+    std::map< std::string, InputEquationVectorSize > variableNameIndex;
 
     static int const left_side;
     static int const right_side;
 };
 
-int const system_of_equations::left_side = 1;
-int const system_of_equations::right_side = -1;
+int const SystemOfEquations::left_side = 1;
+int const SystemOfEquations::right_side = -1;
 
-void system_of_equations::convert_input_to_matrix()
+void SystemOfEquations::convertInputToMatrix()
 {
-    size_type row = 0;
+    InputEquationVectorSize row = 0;
 
-    BOOST_FOREACH ( std::string equation_as_string, input_system )
+    BOOST_FOREACH ( std::string equationAsString, equationVector )
     {
-        tokenizer equation_as_tokens = string_to_tokens( equation_as_string );
+        Tokenizer equationAsTokens = stringToTokens( equationAsString );
         bool first_token = true;
         bool quantity = true;
 
-        BOOST_FOREACH ( std::string token, equation_as_tokens )
+        BOOST_FOREACH ( std::string token, equationAsTokens )
         {
-            size_type va_index = 0;
+            InputEquationVectorSize va_index = 0;
 
             if ( first_token )
             {
                 // this must be a variable on the left side of this input equation
-                va_index = note_variable( token );
-                increment_height();
-                add_variable( left_side, row, va_index );
+                va_index = indexVariable( token );
+                incrementHeight();
+                addVariable( left_side, row, va_index );
             }
             else if ( quantity )
             {
                 // this must be a variable or constant on the right side of this input equation
                 if ( isdigit( token[ 0 ] ) )
                 {
-                    add_constant( row, atol( token.c_str() ) );
+                    addConstant( row, atol( token.c_str() ) );
                 }
                 else
                 {
-                    va_index = note_variable( token );
-                    add_variable( right_side, row, va_index );
+                    va_index = indexVariable( token );
+                    addVariable( right_side, row, va_index );
                 }
             }
             // else, this must be the equal sign or a plus sign
@@ -130,30 +135,30 @@ void system_of_equations::convert_input_to_matrix()
     }
 }
 
-system_of_equations::size_type system_of_equations::note_variable( std::string const & variable_name )
+SystemOfEquations::InputEquationVectorSize SystemOfEquations::indexVariable( std::string const & name )
 {
-    size_type va_index = 0;
+    InputEquationVectorSize index = 0;
 
-    if ( 0 == va_check.count( variable_name ) )
+    if ( 0 == variableNameIndex.count( name ) )
     {
-        va.push_back( variable_name );
-        va_index = va.size() - 1;
-        va_check[ variable_name ] = va_index;
+        variableNameValue.push_back( name );
+        index = variableNameValue.size() - 1;
+        variableNameIndex[ name ] = index;
     }
     else
     {
-        va_index = va_check[ variable_name ];
+        index = variableNameIndex[ name ];
     }
 
-    return va_index;
+    return index;
 }
 
-void system_of_equations::increment_height()
+void SystemOfEquations::incrementHeight()
 {
-    co.resize( co.size1() + 1, co.size2() );
-    coefficient_matrix_row row( co, co.size1() - 1 );
+    augMatrix.resize( augMatrix.size1() + 1, augMatrix.size2() );
+    AugmentedMatrixRow row( augMatrix, augMatrix.size1() - 1 );
 
-    for ( size_type i = 0; i < co.size2(); ++i )
+    for ( InputEquationVectorSize i = 0; i < augMatrix.size2(); ++i )
         row( i ) = 0;
 
 #ifdef SHOW_CALCULATIONS
@@ -161,62 +166,62 @@ void system_of_equations::increment_height()
 #endif
 }
 
-void system_of_equations::add_variable( int side, size_type row, size_type column )
+void SystemOfEquations::addVariable( int side, InputEquationVectorSize row, InputEquationVectorSize column )
 {
     // Subtract 1 from the coefficient at this equation index (row) and variable index (column).
-    if ( column + 1 >= co.size2() ) // no room for the constant column?
+    if ( column + 1 >= augMatrix.size2() ) // no room for the constant column?
     {
-        increase_width( column + 2 ); // make room for this column and the constant column
-        co( row, column ) = side;
+        increaseWidth( column + 2 ); // make room for this column and the constant column
+        augMatrix( row, column ) = side;
     }
-    
-    else if ( row >= co.size1() )
-        co( row, column ) = side;
-    
+
+    else if ( row >= augMatrix.size1() )
+        augMatrix( row, column ) = side;
+
     else
-        co( row, column ) += side;
+        augMatrix( row, column ) += side;
 }
 
-void system_of_equations::increase_width( size_type new_width )
+void SystemOfEquations::increaseWidth( InputEquationVectorSize newWidth )
 {
-    size_type height = co.size1();
-    size_type old_width = co.size2();
+    InputEquationVectorSize height = augMatrix.size1();
+    InputEquationVectorSize old_width = augMatrix.size2();
     assert( old_width != 1 );
-    assert( new_width >= 2 ); // minimal non-empty width due to the constant column
+    assert( newWidth >= 2 ); // minimal non-empty width due to the constant column
 
     if ( height == 0 )
         height = 1;
 
-    co.resize( height, new_width );
-    co( 0, old_width ) = 0; // in case old_width is 0 and new_width is 2
-    co( 0, new_width - 1 ) = 0;
+    augMatrix.resize( height, newWidth );
+    augMatrix( 0, old_width ) = 0; // in case old_width is 0 and newWidth is 2
+    augMatrix( 0, newWidth - 1 ) = 0;
 
     if ( 0 < old_width )
     {
-        coefficient_matrix_column old_constants( co, old_width - 1 );
-        coefficient_matrix_column new_constants( co, new_width - 1 );
+        AugmentedMatrixColumn old_constants( augMatrix, old_width - 1 );
+        AugmentedMatrixColumn new_constants( augMatrix, newWidth - 1 );
         new_constants = old_constants;
         old_constants -= old_constants;
     }
 }
 
-void system_of_equations::add_constant( size_type row, element_type constant )
+void SystemOfEquations::addConstant( InputEquationVectorSize row, ElementType constant )
 {
     // Add constant at this equation index (row) and constant (last) column.
-    if ( row >= co.size1() )
-        co( row, co.size2() - 1 ) = constant;
+    if ( row >= augMatrix.size1() )
+        augMatrix( row, augMatrix.size2() - 1 ) = constant;
 
     else
-        co( row, co.size2() - 1 ) += constant;
+        augMatrix( row, augMatrix.size2() - 1 ) += constant;
 }
 
-void system_of_equations::print_matrix()
+void SystemOfEquations::printMatrix()
 {
-    for( size_type i = 0; i < co.size1(); ++i )
+    for( InputEquationVectorSize i = 0; i < augMatrix.size1(); ++i )
     {
-        coefficient_matrix_row row( co, i );
+        AugmentedMatrixRow row( augMatrix, i );
 
-        BOOST_FOREACH( element_type coefficient, row )
+        BOOST_FOREACH( ElementType coefficient, row )
         {
             std::cout << coefficient << " ";
         }
@@ -227,20 +232,20 @@ void system_of_equations::print_matrix()
     std::cout << std::endl;
 }
 
-void system_of_equations::gaussian_elimination_wikipedia()
+void SystemOfEquations::solveByGaussianElimination()
 {
-    coefficient_matrix_size_type m = co.size1();
-    coefficient_matrix_size_type n = co.size2();
+    AugmentedMatrixSize m = augMatrix.size1();
+    AugmentedMatrixSize n = augMatrix.size2();
 
-    for ( coefficient_matrix_size_type k = 0; k < std::min( m, n ); ++k )
+    for ( AugmentedMatrixSize k = 0; k < std::min( m, n ); ++k )
     {
         // find the k-th pivot:
-        element_type max_co = 0;
-        coefficient_matrix_size_type i_of_max_co = 0;
+        ElementType max_co = 0;
+        AugmentedMatrixSize i_of_max_co = 0;
 
-        for ( coefficient_matrix_size_type i = k; i < m; ++i )
+        for ( AugmentedMatrixSize i = k; i < m; ++i )
         {
-            element_type abs_co = co( i, k );
+            ElementType abs_co = augMatrix( i, k );
 
             if ( abs_co < 0 )
                 abs_co = -abs_co;
@@ -252,7 +257,7 @@ void system_of_equations::gaussian_elimination_wikipedia()
             }
         }
 
-        if ( co( i_of_max_co, k ) == 0 )
+        if ( augMatrix( i_of_max_co, k ) == 0 )
         {
             // matrix is singular
             // indicate an error
@@ -260,28 +265,28 @@ void system_of_equations::gaussian_elimination_wikipedia()
         }
 
         // swap rows k and i_max:
-        coefficient_matrix_row q( co, k );
-        coefficient_matrix_row r( co, i_of_max_co );
+        AugmentedMatrixRow q( augMatrix, k );
+        AugmentedMatrixRow r( augMatrix, i_of_max_co );
         r.swap( q );
 
         // for all rows below pivot:
-        for ( coefficient_matrix_size_type i = k + 1; i < m; ++i )
+        for ( AugmentedMatrixSize i = k + 1; i < m; ++i )
         {
-            element_type f = co( i, k ) / co( k, k );
+            ElementType f = augMatrix( i, k ) / augMatrix( k, k );
 
             // for all remaining elements in current row:
-            for ( coefficient_matrix_size_type j = k + 1; j < n; ++j )
+            for ( AugmentedMatrixSize j = k + 1; j < n; ++j )
             {
-                co( i, j ) = co( i, j ) - co( k, j ) * f;
+                augMatrix( i, j ) = augMatrix( i, j ) - augMatrix( k, j ) * f;
             }
 
             // fill lower triangular matrix with zeros:
-            co( i, k ) = 0;
+            augMatrix( i, k ) = 0;
         }
     }
 }
 
-bool system_of_equations::is_valid_string( std::string const & str, int_f_int is_valid_char )
+bool SystemOfEquations::isValidString( std::string const & str, IntFunctionInt isValidChar )
 {
     if ( str.size() > 10 )
         return false;
@@ -290,7 +295,7 @@ bool system_of_equations::is_valid_string( std::string const & str, int_f_int is
 
     BOOST_FOREACH ( char c, str )
     {
-        valid = is_valid_char( c );
+        valid = isValidChar( c );
 
         if ( ! valid )
             break;
@@ -299,36 +304,36 @@ bool system_of_equations::is_valid_string( std::string const & str, int_f_int is
     return valid;
 }
 
-bool system_of_equations::is_valid_variable_name( std::string const & str )
+bool SystemOfEquations::isValidVariableName( std::string const & str )
 {
-   return is_valid_string( str, boost::bind( isalpha, _1 ) );
+   return isValidString( str, boost::bind( isalpha, _1 ) );
 }
 
-bool system_of_equations::is_valid_unsigned_integer( std::string const & str )
+bool SystemOfEquations::isValidUnsignedInteger( std::string const & str )
 {
-   return is_valid_string( str, boost::bind( isdigit, _1 ) );
+   return isValidString( str, boost::bind( isdigit, _1 ) );
 }
 
-bool system_of_equations::is_valid_variable_name_or_unsigned_integer( std::string const & str )
+bool SystemOfEquations::isValidVariableNameOrUnsignedInteger( std::string const & str )
 {
-    return( is_valid_variable_name( str ) || is_valid_unsigned_integer( str ) );
+    return( isValidVariableName( str ) || isValidUnsignedInteger( str ) );
 }
 
-bool system_of_equations::is_equal_sign( std::string const &token )
+bool SystemOfEquations::isEqualSign( std::string const &token )
 {
     return( "=" == token );
 }
 
-bool system_of_equations::is_plus_sign( std::string const & token )
+bool SystemOfEquations::isPlusSign( std::string const & token )
 {
     return( "+" == token );
 }
 
-bool system_of_equations::is_equation( tokenizer const & equation )
+bool SystemOfEquations::isEquation( Tokenizer const & equation )
 {
     bool valid = true;
 
-    tokenizer::const_iterator token = equation.begin();
+    Tokenizer::const_iterator token = equation.begin();
 
     // first token: variable
     valid = ( token != equation.end() );
@@ -336,7 +341,7 @@ bool system_of_equations::is_equation( tokenizer const & equation )
     if ( ! valid )
         return valid;
 
-    valid = is_valid_variable_name( *token );
+    valid = isValidVariableName( *token );
 
     if ( ! valid )
         return valid;
@@ -349,7 +354,7 @@ bool system_of_equations::is_equation( tokenizer const & equation )
     if ( ! valid )
         return valid;
 
-    valid = is_equal_sign( *token );
+    valid = isEqualSign( *token );
 
     if ( ! valid )
         return valid;
@@ -362,7 +367,7 @@ bool system_of_equations::is_equation( tokenizer const & equation )
     if ( ! valid )
         return valid;
 
-    valid = is_valid_variable_name_or_unsigned_integer( *token );
+    valid = isValidVariableNameOrUnsignedInteger( *token );
 
     if ( ! valid )
         return valid;
@@ -372,7 +377,7 @@ bool system_of_equations::is_equation( tokenizer const & equation )
     // remaining pairs tokens: plus sign then either variable or unsigned integer
     for ( ; token != equation.end(); ++token)
     {
-        valid = is_plus_sign( *token );
+        valid = isPlusSign( *token );
 
         if ( ! valid )
             break;
@@ -383,7 +388,7 @@ bool system_of_equations::is_equation( tokenizer const & equation )
         if ( ! valid )
             break;
 
-        valid = is_valid_variable_name_or_unsigned_integer( *token );
+        valid = isValidVariableNameOrUnsignedInteger( *token );
 
         if ( ! valid )
             break;
@@ -392,10 +397,10 @@ bool system_of_equations::is_equation( tokenizer const & equation )
     return valid;
 }
 
-void system_of_equations::load_input_file( std::string const & file_name )
+void SystemOfEquations::loadInputFile( std::string const & fileName )
 {
     std::ifstream input_file;
-    input_file.open( file_name.c_str() );
+    input_file.open( fileName.c_str() );
 
     if ( input_file.is_open() )
     {
@@ -403,21 +408,21 @@ void system_of_equations::load_input_file( std::string const & file_name )
 
         while ( std::getline( input_file, input_equation ) )
         {
-            input_system.push_back( input_equation );
+            equationVector.push_back( input_equation );
         }
 
         input_file.close();
     }
 }
 
-bool system_of_equations::equations_are_valid()
+bool SystemOfEquations::equationsAreValid()
 {
     bool valid = true;
 
-    BOOST_FOREACH ( std::string equation_as_string, input_system )
+    BOOST_FOREACH ( std::string equationAsString, equationVector )
     {
-        tokenizer equation_as_tokens = string_to_tokens( equation_as_string );
-        valid = is_equation( equation_as_tokens );
+        Tokenizer equationAsTokens = stringToTokens( equationAsString );
+        valid = isEquation( equationAsTokens );
 
         if ( ! valid )
             break;
@@ -426,48 +431,41 @@ bool system_of_equations::equations_are_valid()
     return valid;
 }
 
-system_of_equations::tokenizer system_of_equations::string_to_tokens( std::string const & equation_as_string )
+void SystemOfEquations::printAllEquations()
 {
-    boost::char_separator< char > separator( " " );
-    tokenizer equation_as_tokens( equation_as_string, separator );
-    return equation_as_tokens;
-}
-
-void system_of_equations::print_all_equations()
-{
-    BOOST_FOREACH ( std::string equation_as_string, input_system )
+    BOOST_FOREACH ( std::string equationAsString, equationVector )
     {
-        std::cout << equation_as_string << std::endl;
+        std::cout << equationAsString << std::endl;
     }
 }
 
 // This function uses back substitution to solve all the variables.
-void system_of_equations::convert_matrix_to_results()
+void SystemOfEquations::convertMatrixToResults()
 {
-    for ( size_type e = co.size1() - 1; ; --e )
+    for ( InputEquationVectorSize e = augMatrix.size1() - 1; ; --e )
     {
-        element_type answer = co( e, co.size2() - 1 );
+        ElementType answer = augMatrix( e, augMatrix.size2() - 1 );
 
 #ifdef SHOW_CALCULATIONS
-        std::cout << "co(" << e << "," << co.size2() - 1 << ") = " << co( e, co.size2() - 1 ) << std::endl;
-        std::cout << "answer <- co(" << e << "," << co.size2() - 1 << ")" << std::endl;
+        std::cout << "augMatrix(" << e << "," << augMatrix.size2() - 1 << ") = " << augMatrix( e, augMatrix.size2() - 1 ) << std::endl;
+        std::cout << "answer <- augMatrix(" << e << "," << augMatrix.size2() - 1 << ")" << std::endl;
         std::cout << "answer = " << answer << std::endl;
 #endif
 
-        for ( size_type v = co.size2() - 2; ; --v )
+        for ( InputEquationVectorSize v = augMatrix.size2() - 2; ; --v )
         {
             if ( v > e )
             {
 
 #ifdef SHOW_CALCULATIONS
-                std::cout << "co(" << e << "," << v << ") = " << co( e, v ) << std::endl;
-                std::cout << va[ v ].name << " = " << va[ v ].value << std::endl;
+                std::cout << "augMatrix(" << e << "," << v << ") = " << augMatrix( e, v ) << std::endl;
+                std::cout << variableNameValue[ v ].name << " = " << variableNameValue[ v ].value << std::endl;
 #endif
 
-                answer -= co( e, v ) * va[ v ].value;
+                answer -= augMatrix( e, v ) * variableNameValue[ v ].value;
 
 #ifdef SHOW_CALCULATIONS
-                std::cout << "answer <- answer - co(" << e << "," << v << ") * " << va[ v ].name << std::endl;
+                std::cout << "answer <- answer - augMatrix(" << e << "," << v << ") * " << variableNameValue[ v ].name << std::endl;
                 std::cout << "answer = " << answer << std::endl;
 #endif
             }
@@ -476,21 +474,21 @@ void system_of_equations::convert_matrix_to_results()
             {
 
 #ifdef SHOW_CALCULATIONS
-                std::cout << "co(" << e << "," << v << ") = " << co( e, v ) << std::endl;
+                std::cout << "augMatrix(" << e << "," << v << ") = " << augMatrix( e, v ) << std::endl;
 #endif
 
-                answer /= co( e, v );
+                answer /= augMatrix( e, v );
 
 #ifdef SHOW_CALCULATIONS
-                std::cout << "answer <- answer / co(" << e << "," << v << ")" << std::endl;
+                std::cout << "answer <- answer / augMatrix(" << e << "," << v << ")" << std::endl;
                 std::cout << "answer = " << answer << std::endl;
 #endif
 
-                va[ v ].value = answer;
+                variableNameValue[ v ].value = answer;
 
 #ifdef SHOW_CALCULATIONS
-                std::cout << va[ v ].name << " <- answer" << std::endl;
-                std::cout << va[ v ].name << " = " << va[ v ].value << std::endl;
+                std::cout << variableNameValue[ v ].name << " <- answer" << std::endl;
+                std::cout << variableNameValue[ v ].name << " = " << variableNameValue[ v ].value << std::endl;
 #endif
             }
 
@@ -503,13 +501,13 @@ void system_of_equations::convert_matrix_to_results()
     }
 }
 
-void system_of_equations::output_results()
+void SystemOfEquations::outputResults()
 {
-    std::sort( va.begin(), va.end(), operator< );
+    std::sort( variableNameValue.begin(), variableNameValue.end(), operator< );
 
-    BOOST_FOREACH ( variable_name_value vnv, va )
+    BOOST_FOREACH ( VariableNameValue variable, variableNameValue )
     {
-        std::cout << vnv.name << " = " << vnv.value << std::endl;
+        std::cout << variable.name << " = " << variable.value << std::endl;
     }
 }
 
@@ -518,27 +516,27 @@ int main( int argc, char * argv[] )
     if ( argc < 2 )
         return 0; // no input file
 
-    system_of_equations system;
-    std::string const file_name( argv[ 1 ] );
-    system.load_input_file( file_name );
+    SystemOfEquations system;
+    std::string const fileName( argv[ 1 ] );
+    system.loadInputFile( fileName );
 
     // If any input equation is not valid, print all input equations.
-    if ( ! system.equations_are_valid() )
+    if ( ! system.equationsAreValid() )
     {
-        system.print_all_equations();
+        system.printAllEquations();
         return 0;
     }
 
-    system.convert_input_to_matrix();
+    system.convertInputToMatrix();
 #ifdef SHOW_CALCULATIONS
-    system.print_matrix();
+    system.printMatrix();
 #endif
-    system.gaussian_elimination_wikipedia();
+    system.solveByGaussianElimination();
 #ifdef SHOW_CALCULATIONS
-    system.print_matrix();
+    system.printMatrix();
 #endif
-    system.convert_matrix_to_results();
-    system.output_results();
+    system.convertMatrixToResults();
+    system.outputResults();
 
     return 0;
 }
