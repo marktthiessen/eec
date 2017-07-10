@@ -15,7 +15,7 @@
 #include <boost/numeric/ublas/matrix_proxy.hpp>
 #include <boost/numeric/ublas/vector.hpp>
 #include <boost/numeric/ublas/io.hpp>
-#include <boost/Tokenizer.hpp>
+#include <boost/tokenizer.hpp>
 
 typedef long double Element;
 typedef uint8_t Index;
@@ -37,7 +37,7 @@ public:
 class VariableSet
 {
 public:
-    Index getIndexFor( std::string const & name )
+    Index indexFor( std::string const & name )
     {
         Index index = 0;
 
@@ -61,17 +61,12 @@ public:
         return index;
     }
 
-    void asValue( Index index, Element value )
-    {
-        variableSet[ index ].value = value;
-    }
-
-    Element const & asValue( Index index )
+    Element & operator[]( Index const index )
     {
         return variableSet[ index ].value;
     }
 
-    std::string const & asName( Index index )
+    std::string asName( Index const index )
     {
         return variableSet[ index ].name;
     }
