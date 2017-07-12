@@ -124,7 +124,6 @@ private:
     bool isEqualSign( std::string const & );
     bool isPlusSign( std::string const & );
     bool isEquation( Tokenizer const & equation );
-    InputEquationVectorSize indexVariable( std::string const & name );
     void incrementHeight();
     void addVariable( int side, InputEquationVectorSize row, InputEquationVectorSize column );
     void increaseWidth( InputEquationVectorSize newWidth );
@@ -132,8 +131,7 @@ private:
 
     InputEquationVector equationVector;
     AugmentedMatrix augMatrix; // augmented matrix of coefficients and constants
-    std::vector< Variable > variableNameValue;
-    std::map< std::string, InputEquationVectorSize > variableNameIndex;
+    VariableSet variable;
 
     static int const left_side;
     static int const right_side;
@@ -159,7 +157,7 @@ void LinearSystem::convertInputToMatrix()
             if ( first_token )
             {
                 // this must be a variable on the left side of this input equation
-                va_index = indexVariable( token );
+                va_index = variable.indexFor( token );
                 incrementHeight();
                 addVariable( left_side, row, va_index );
             }
@@ -172,7 +170,7 @@ void LinearSystem::convertInputToMatrix()
                 }
                 else
                 {
-                    va_index = indexVariable( token );
+                    va_index = variable.indexFor( token );
                     addVariable( right_side, row, va_index );
                 }
             }
@@ -184,24 +182,6 @@ void LinearSystem::convertInputToMatrix()
 
         ++row;
     }
-}
-
-LinearSystem::InputEquationVectorSize LinearSystem::indexVariable( std::string const & name )
-{
-    InputEquationVectorSize index = 0;
-
-    if ( 0 == variableNameIndex.count( name ) )
-    {
-        variableNameValue.push_back( name );
-        index = variableNameValue.size() - 1;
-        variableNameIndex[ name ] = index;
-    }
-    else
-    {
-        index = variableNameIndex[ name ];
-    }
-
-    return index;
 }
 
 void LinearSystem::incrementHeight()
@@ -510,13 +490,13 @@ void LinearSystem::convertMatrixToResults()
 
 #ifdef SHOW_CALCULATIONS
                 std::cout << "augMatrix(" << e << "," << v << ") = " << augMatrix( e, v ) << std::endl;
-                std::cout << variableNameValue[ v ].name << " = " << variableNameValue[ v ].value << std::endl;
+                std::cout << variable.asName( v ) << " = " << variable[ v ] << std::endl;
 #endif
 
-                answer -= augMatrix( e, v ) * variableNameValue[ v ].value;
+                answer -= augMatrix( e, v ) * variable[ v ];
 
 #ifdef SHOW_CALCULATIONS
-                std::cout << "answer <- answer - augMatrix(" << e << "," << v << ") * " << variableNameValue[ v ].name << std::endl;
+                std::cout << "answer <- answer - augMatrix(" << e << "," << v << ") * " << variable.asName( v ) << std::endl;
                 std::cout << "answer = " << answer << std::endl;
 #endif
             }
@@ -535,11 +515,11 @@ void LinearSystem::convertMatrixToResults()
                 std::cout << "answer = " << answer << std::endl;
 #endif
 
-                variableNameValue[ v ].value = answer;
+                variable[ v ] = answer;
 
 #ifdef SHOW_CALCULATIONS
-                std::cout << variableNameValue[ v ].name << " <- answer" << std::endl;
-                std::cout << variableNameValue[ v ].name << " = " << variableNameValue[ v ].value << std::endl;
+                std::cout << variable.asName( v ) << " <- answer" << std::endl;
+                std::cout << variable.asName( v ) << " = " << variable[ v ] << std::endl;
 #endif
             }
 
@@ -554,11 +534,12 @@ void LinearSystem::convertMatrixToResults()
 
 void LinearSystem::outputResults()
 {
-    std::sort( variableNameValue.begin(), variableNameValue.end(), operator< );
+    std::vector< Variable > variableSet = variable.asVector();
+    std::sort( variableSet.begin(), variableSet.end(), operator< );
 
-    BOOST_FOREACH ( Variable variable, variableNameValue )
+    BOOST_FOREACH ( Variable v, variableSet )
     {
-        std::cout << variable.name << " = " << variable.value << std::endl;
+        std::cout << v.name << " = " << v.value << std::endl;
     }
 }
 
