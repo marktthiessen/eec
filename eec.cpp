@@ -17,74 +17,7 @@
 #include <boost/numeric/ublas/io.hpp>
 #include <boost/tokenizer.hpp>
 
-typedef long double Element;
-typedef uint8_t Index;
-static Index const maximumDimensions = 255;
-
-class Variable
-{
-public:
-    Variable( std::string name )
-    : name( name )
-    , value( 0 )
-    {
-    }
-
-    std::string name;
-    Element value;
-};
-
-class VariableSet
-{
-public:
-    Index indexFor( std::string const & name )
-    {
-        Index index = 0;
-
-        if ( 0 == indexOf.count( name ) )
-        {
-            // This is a new variable.
-            if ( variableSet.size() == maximumDimensions )
-            {
-                throw std::length_error( "variable set full" );
-            }
-
-            variableSet.push_back( name );
-            index = variableSet.size() - 1; // get next available index
-            indexOf[ name ] = index;
-        }
-        else
-        {
-            index = indexOf[ name ];
-        }
-
-        return index;
-    }
-
-    Element & operator[]( Index const index )
-    {
-        return variableSet[ index ].value;
-    }
-
-    std::string asName( Index const index )
-    {
-        return variableSet[ index ].name;
-    }
-
-    std::vector< Variable > asVector()
-    {
-        return variableSet;
-    }
-
-private:
-    std::vector< Variable > variableSet;
-    std::map< std::string, Index > indexOf; // for faster index lookups than searching variableSet
-};
-
-bool operator<( Variable lhs, Variable rhs )
-{
-    return lhs.name < rhs.name;
-}
+#include "variable-set.h"
 
 typedef boost::tokenizer< boost::char_separator< char > > Tokenizer;
 
