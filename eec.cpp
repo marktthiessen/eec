@@ -17,52 +17,29 @@
 #include <boost/numeric/ublas/io.hpp>
 #include <boost/tokenizer.hpp>
 
+#include "input-equation-vector.h"
 #include "variable-set.h"
-
-typedef boost::tokenizer< boost::char_separator< char > > Tokenizer;
-
-Tokenizer stringToTokens( std::string const & equationAsString )
-{
-    boost::char_separator< char > separator( " " );
-    Tokenizer equationAsTokens( equationAsString, separator );
-    return equationAsTokens;
-}
 
 // Our System of Linear Equations
 class LinearSystem
 {
 public:
     typedef boost::numeric::ublas::matrix< Element > AugmentedMatrix;
-    typedef AugmentedMatrix::size_type AugmentedMatrixSize;
     typedef boost::numeric::ublas::matrix_row< AugmentedMatrix > AugmentedMatrixRow;
     typedef boost::numeric::ublas::matrix_column< AugmentedMatrix > AugmentedMatrixColumn;
-    typedef std::vector< std::string > InputEquationVector;
-    typedef InputEquationVector::size_type InputEquationVectorSize;
-    typedef boost::function< int( int ) > IntFunctionInt;
 
-    void loadInputFile( std::string const & fileName );
-    bool equationsAreValid();
-    void printAllEquations();
-    void convertInputToMatrix();
+    void convertInputToMatrix( InputEquationVector const & inputEquation );
     void printMatrix();
     void solveByGaussianElimination();
     void convertMatrixToResults();
     void outputResults();
 
 private:
-    bool isValidString( std::string const &, IntFunctionInt isValidChar );
-    bool isValidVariableName( std::string const & );
-    bool isValidUnsignedInteger( std::string const & );
-    bool isValidVariableNameOrUnsignedInteger( std::string const & );
-    bool isEqualSign( std::string const & );
-    bool isPlusSign( std::string const & );
-    bool isEquation( Tokenizer const & equation );
     void incrementHeight();
-    void addVariable( int side, InputEquationVectorSize row, InputEquationVectorSize column );
-    void increaseWidth( InputEquationVectorSize newWidth );
-    void addConstant( InputEquationVectorSize row, Element constant );
+    void addVariable( int side, Dimensions row, Dimensions column );
+    void increaseWidth( Dimensions newWidth );
+    void addConstant( Dimensions row, Element constant );
 
-    InputEquationVector equationVector;
     AugmentedMatrix augMatrix; // augmented matrix of coefficients and constants
     VariableSet variable;
 
@@ -73,11 +50,11 @@ private:
 int const LinearSystem::left_side = 1;
 int const LinearSystem::right_side = -1;
 
-void LinearSystem::convertInputToMatrix()
+void LinearSystem::convertInputToMatrix( InputEquationVector const & inputEquation )
 {
-    InputEquationVectorSize row = 0;
+    Dimensions row = 0;
 
-    BOOST_FOREACH ( std::string equationAsString, equationVector )
+    BOOST_FOREACH ( std::string equationAsString, inputEquation.asVector() )
     {
         Tokenizer equationAsTokens = stringToTokens( equationAsString );
         bool first_token = true;
@@ -85,7 +62,7 @@ void LinearSystem::convertInputToMatrix()
 
         BOOST_FOREACH ( std::string token, equationAsTokens )
         {
-            InputEquationVectorSize va_index = 0;
+            Dimensions va_index = 0;
 
             if ( first_token )
             {
@@ -122,7 +99,7 @@ void LinearSystem::incrementHeight()
     augMatrix.resize( augMatrix.size1() + 1, augMatrix.size2() );
     AugmentedMatrixRow row( augMatrix, augMatrix.size1() - 1 );
 
-    for ( InputEquationVectorSize i = 0; i < augMatrix.size2(); ++i )
+    for ( Dimensions i = 0; i < augMatrix.size2(); ++i )
         row( i ) = 0;
 
 #ifdef SHOW_CALCULATIONS
@@ -130,7 +107,7 @@ void LinearSystem::incrementHeight()
 #endif
 }
 
-void LinearSystem::addVariable( int side, InputEquationVectorSize row, InputEquationVectorSize column )
+void LinearSystem::addVariable( int side, Dimensions row, Dimensions column )
 {
     // Subtract 1 from the coefficient at this equation index (row) and variable index (column).
     if ( column + 1 >= augMatrix.size2() ) // no room for the constant column?
@@ -146,10 +123,10 @@ void LinearSystem::addVariable( int side, InputEquationVectorSize row, InputEqua
         augMatrix( row, column ) += side;
 }
 
-void LinearSystem::increaseWidth( InputEquationVectorSize newWidth )
+void LinearSystem::increaseWidth( Dimensions newWidth )
 {
-    InputEquationVectorSize height = augMatrix.size1();
-    InputEquationVectorSize old_width = augMatrix.size2();
+    Dimensions height = augMatrix.size1();
+    Dimensions old_width = augMatrix.size2();
     assert( old_width != 1 );
     assert( newWidth >= 2 ); // minimal non-empty width due to the constant column
 
@@ -169,7 +146,7 @@ void LinearSystem::increaseWidth( InputEquationVectorSize newWidth )
     }
 }
 
-void LinearSystem::addConstant( InputEquationVectorSize row, Element constant )
+void LinearSystem::addConstant( Dimensions row, Element constant )
 {
     // Add constant at this equation index (row) and constant (last) column.
     if ( row >= augMatrix.size1() )
@@ -181,7 +158,7 @@ void LinearSystem::addConstant( InputEquationVectorSize row, Element constant )
 
 void LinearSystem::printMatrix()
 {
-    for( InputEquationVectorSize i = 0; i < augMatrix.size1(); ++i )
+    for( Dimensions i = 0; i < augMatrix.size1(); ++i )
     {
         AugmentedMatrixRow row( augMatrix, i );
 
@@ -198,16 +175,16 @@ void LinearSystem::printMatrix()
 
 void LinearSystem::solveByGaussianElimination()
 {
-    AugmentedMatrixSize m = augMatrix.size1();
-    AugmentedMatrixSize n = augMatrix.size2();
+    Dimensions m = augMatrix.size1();
+    Dimensions n = augMatrix.size2();
 
-    for ( AugmentedMatrixSize k = 0; k < std::min( m, n ); ++k )
+    for ( Dimensions k = 0; k < std::min( m, n ); ++k )
     {
         // find the k-th pivot:
         Element max_co = 0;
-        AugmentedMatrixSize i_of_max_co = 0;
+        Dimensions i_of_max_co = 0;
 
-        for ( AugmentedMatrixSize i = k; i < m; ++i )
+        for ( Dimensions i = k; i < m; ++i )
         {
             Element abs_co = augMatrix( i, k );
 
@@ -234,12 +211,12 @@ void LinearSystem::solveByGaussianElimination()
         r.swap( q );
 
         // for all rows below pivot:
-        for ( AugmentedMatrixSize i = k + 1; i < m; ++i )
+        for ( Dimensions i = k + 1; i < m; ++i )
         {
             Element f = augMatrix( i, k ) / augMatrix( k, k );
 
             // for all remaining elements in current row:
-            for ( AugmentedMatrixSize j = k + 1; j < n; ++j )
+            for ( Dimensions j = k + 1; j < n; ++j )
             {
                 augMatrix( i, j ) = augMatrix( i, j ) - augMatrix( k, j ) * f;
             }
@@ -250,163 +227,10 @@ void LinearSystem::solveByGaussianElimination()
     }
 }
 
-bool LinearSystem::isValidString( std::string const & str, IntFunctionInt isValidChar )
-{
-    if ( str.size() > 10 )
-        return false;
-
-    bool valid = true;
-
-    BOOST_FOREACH ( char c, str )
-    {
-        valid = isValidChar( c );
-
-        if ( ! valid )
-            break;
-    }
-
-    return valid;
-}
-
-bool LinearSystem::isValidVariableName( std::string const & str )
-{
-   return isValidString( str, boost::bind( isalpha, _1 ) );
-}
-
-bool LinearSystem::isValidUnsignedInteger( std::string const & str )
-{
-   return isValidString( str, boost::bind( isdigit, _1 ) );
-}
-
-bool LinearSystem::isValidVariableNameOrUnsignedInteger( std::string const & str )
-{
-    return( isValidVariableName( str ) || isValidUnsignedInteger( str ) );
-}
-
-bool LinearSystem::isEqualSign( std::string const &token )
-{
-    return( "=" == token );
-}
-
-bool LinearSystem::isPlusSign( std::string const & token )
-{
-    return( "+" == token );
-}
-
-bool LinearSystem::isEquation( Tokenizer const & equation )
-{
-    bool valid = true;
-
-    Tokenizer::const_iterator token = equation.begin();
-
-    // first token: variable
-    valid = ( token != equation.end() );
-
-    if ( ! valid )
-        return valid;
-
-    valid = isValidVariableName( *token );
-
-    if ( ! valid )
-        return valid;
-
-    ++token;
-
-    // second token: equal sign
-    valid = ( token != equation.end() );
-
-    if ( ! valid )
-        return valid;
-
-    valid = isEqualSign( *token );
-
-    if ( ! valid )
-        return valid;
-
-    ++token;
-
-    // third token: variable or unsigned integer
-    valid = ( token != equation.end() );
-
-    if ( ! valid )
-        return valid;
-
-    valid = isValidVariableNameOrUnsignedInteger( *token );
-
-    if ( ! valid )
-        return valid;
-
-    ++token;
-
-    // remaining pairs tokens: plus sign then either variable or unsigned integer
-    for ( ; token != equation.end(); ++token)
-    {
-        valid = isPlusSign( *token );
-
-        if ( ! valid )
-            break;
-
-        ++token;
-        valid = ( token != equation.end() );
-
-        if ( ! valid )
-            break;
-
-        valid = isValidVariableNameOrUnsignedInteger( *token );
-
-        if ( ! valid )
-            break;
-    }
-
-    return valid;
-}
-
-void LinearSystem::loadInputFile( std::string const & fileName )
-{
-    std::ifstream input_file;
-    input_file.open( fileName.c_str() );
-
-    if ( input_file.is_open() )
-    {
-        std::string input_equation;
-
-        while ( std::getline( input_file, input_equation ) )
-        {
-            equationVector.push_back( input_equation );
-        }
-
-        input_file.close();
-    }
-}
-
-bool LinearSystem::equationsAreValid()
-{
-    bool valid = true;
-
-    BOOST_FOREACH ( std::string equationAsString, equationVector )
-    {
-        Tokenizer equationAsTokens = stringToTokens( equationAsString );
-        valid = isEquation( equationAsTokens );
-
-        if ( ! valid )
-            break;
-    }
-
-    return valid;
-}
-
-void LinearSystem::printAllEquations()
-{
-    BOOST_FOREACH ( std::string equationAsString, equationVector )
-    {
-        std::cout << equationAsString << std::endl;
-    }
-}
-
 // This function uses back substitution to solve all the variables.
 void LinearSystem::convertMatrixToResults()
 {
-    for ( InputEquationVectorSize e = augMatrix.size1() - 1; ; --e )
+    for ( Dimensions e = augMatrix.size1() - 1; ; --e )
     {
         Element answer = augMatrix( e, augMatrix.size2() - 1 );
 
@@ -416,7 +240,7 @@ void LinearSystem::convertMatrixToResults()
         std::cout << "answer = " << answer << std::endl;
 #endif
 
-        for ( InputEquationVectorSize v = augMatrix.size2() - 2; ; --v )
+        for ( Dimensions v = augMatrix.size2() - 2; ; --v )
         {
             if ( v > e )
             {
@@ -478,21 +302,22 @@ void LinearSystem::outputResults()
 
 int main( int argc, char * argv[] )
 {
-    if ( argc < 2 )
-        return 0; // no input file
+    if ( argc < 2 ) // no input file
+        return 0;
 
-    LinearSystem system;
+    InputEquationVector inputEquation;
     std::string const fileName( argv[ 1 ] );
-    system.loadInputFile( fileName );
+    inputEquation.loadInputFile( fileName );
 
     // If any input equation is not valid, print all input equations.
-    if ( ! system.equationsAreValid() )
+    if ( ! inputEquation.equationsAreValid() )
     {
-        system.printAllEquations();
+        inputEquation.printAllEquations();
         return 0;
     }
 
-    system.convertInputToMatrix();
+    LinearSystem system;
+    system.convertInputToMatrix( inputEquation );
 #ifdef SHOW_CALCULATIONS
     system.printMatrix();
 #endif

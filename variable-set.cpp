@@ -16,7 +16,7 @@ Index VariableSet::indexFor( std::string const & name )
 
         variableSet.push_back( name );
         index = variableSet.size() - 1; // get next available index
-        indexOf[ name ] = index;
+        indexOf[ name ] = index; // add name and its index
     }
     else
     {

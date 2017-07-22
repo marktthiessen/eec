@@ -7,6 +7,7 @@
 
 typedef long double Element;
 typedef uint8_t Index;
+typedef Index Dimensions;
 static Index const maximumDimensions = 255;
 
 struct Variable
