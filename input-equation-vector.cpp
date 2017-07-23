@@ -1,9 +1,9 @@
+#include <cctype> // isalpha, isdigit
 #include <fstream> // open, close
 #include <iostream> // cout, endl
 
 #include <boost/bind.hpp>
 #include <boost/foreach.hpp>
-#include <boost/function.hpp>
 #include <boost/tokenizer.hpp>
 
 #include "input-equation-vector.h"

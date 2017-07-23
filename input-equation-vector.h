@@ -4,6 +4,9 @@
 #include <string>
 #include <vector>
 
+#include <boost/function.hpp>
+#include <boost/tokenizer.hpp>
+
 typedef boost::tokenizer< boost::char_separator< char > > Tokenizer;
 Tokenizer stringToTokens( std::string const & equationAsString );
 
