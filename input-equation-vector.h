@@ -19,7 +19,7 @@ public:
     typedef VectorOfStrings::size_type Size;
 
     void loadInputFile( std::string const & fileName );
-    bool equationsAreValid() const;
+    void checkEquations() const;
     void printAllEquations() const;
     VectorOfStrings const & asVector() const;
 

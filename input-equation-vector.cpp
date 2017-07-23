@@ -4,7 +4,6 @@
 
 #include <boost/bind.hpp>
 #include <boost/foreach.hpp>
-#include <boost/tokenizer.hpp>
 
 #include "input-equation-vector.h"
 
@@ -35,7 +34,7 @@ void InputEquationVector::loadInputFile( std::string const & fileName )
     }
 }
 
-bool InputEquationVector::equationsAreValid() const
+void InputEquationVector::checkEquations() const
 {
     bool valid = true;
     
@@ -43,12 +42,10 @@ bool InputEquationVector::equationsAreValid() const
     {
         Tokenizer equationAsTokens = stringToTokens( equationAsString );
         valid = isEquation( equationAsTokens );
-        
+
         if ( ! valid )
-            break;
+            throw std::runtime_error( "bad input equation" );
     }
-    
-    return valid;
 }
 
 void InputEquationVector::printAllEquations() const
